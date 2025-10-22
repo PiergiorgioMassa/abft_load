@@ -1,0 +1,60 @@
+initialize() {
+	if (exists("slimgui")){ //seed and K need to be set through the shell script 
+		defineConstant("seed", 1);
+		defineConstant("K", 100000);
+	}
+	setSeed(seed);
+
+	//genomic parameters
+	defineConstant("g", 3); //total gene number
+	defineConstant("geneLength", 30000); //gene length
+	defineConstant("geneSelCoeff", c(-0.001,-0.01,-0.1)); //three selection coefficients are tested here
+	defineConstant("genomeLength", 9e4); //resulting model genome length
+	initializeMutationRate(1e-8);
+	initializeMutationType(0, 0.0, "f", 0.0).convertToSubstitution=T; //neutral mutations
+	defineConstant("m1_domCoeff", 0.5/(1-7071.07*(-0.001))); //dominance coefficients of deleterious mutations are set according to the hs relationship (Henn et al 2016, Kyriazis et al 2020)
+	defineConstant("m1_hetFitEff", 1.0-(0.001*m1_domCoeff));
+	initializeMutationType(1, m1_domCoeff, "f", -0.001).convertToSubstitution=T; //deleterious mutations "m1" s=-0.001
+	initializeGenomicElementType(1, c(1,0), c(2.31,1.0));
+	defineConstant("m2_domCoeff", 0.5/(1-7071.07*(-0.01)));
+	defineConstant("m2_hetFitEff", 1.0-(0.01*m2_domCoeff));
+	initializeMutationType(2, m2_domCoeff, "f", -0.01).convertToSubstitution=T; //deleterious mutations "m2" s=-0.01
+	initializeGenomicElementType(2, c(2,0), c(2.31,1.0));
+	defineConstant("m3_domCoeff", 0.5/(1-7071.07*(-0.1)));
+	defineConstant("m3_hetFitEff", 1.0-(0.1*m3_domCoeff));
+	initializeMutationType(3, m3_domCoeff, "f", -0.1).convertToSubstitution=T; //deleterious mutations "m3" s=-0.1
+	initializeGenomicElementType(3, c(3,0), c(2.31,1.0));
+	counter=1;
+	while (counter<=g){
+		initializeGenomicElement(1, ((counter-1)*geneLength)+(counter-1), (counter*geneLength)+(counter-2));
+		counter=counter+1;
+		initializeGenomicElement(2, ((counter-1)*geneLength)+(counter-1), (counter*geneLength)+(counter-2));
+		counter=counter+1;
+		initializeGenomicElement(3, ((counter-1)*geneLength)+(counter-1), (counter*geneLength)+(counter-2));
+		counter=counter+1;
+	}
+	
+	rates=c(rep(c(1e-7,0.5), g-1),1e-7); //recombination rates is set at 1e-8 within genes and at 0.5 between genes in order to remove linkage effect between genes
+	ends=NULL;
+	for (i in 1:(g-1)){
+		ends=c(ends, (i*geneLength)+(i-2), (i*geneLength)+(i-1));
+	}
+	ends=c(ends,(g*geneLength)+(g-2));
+	initializeRecombinationRate(rates, ends);
+}
+
+
+1 early() {
+	sim.addSubpop(1, K);
+}
+
+
+1:500000 late(){
+	if (sim.cycle%100==0){
+		print(sim.cycle);
+	}
+	//burn-in sampling
+	if (sim.cycle%10000==0){
+		sim.outputFull('TunaLoad_mod1_K' + K + '_seed' + getSeed() + '_gen' + sim.cycle + '_burnin.oF'); //checkpoint: print outputFull file at the end of the burn-in 
+	}
+}
